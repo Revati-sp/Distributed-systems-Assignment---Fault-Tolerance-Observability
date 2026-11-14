@@ -1,0 +1,35 @@
+test_01_checkout_health (tests.test_system.Test1NormalOperation) ... ok
+test_02_payment_health (tests.test_system.Test1NormalOperation) ... ok
+test_02b_services_are_separate_processes (tests.test_system.Test1NormalOperation) ... ok
+test_03_payment_request_succeeds (tests.test_system.Test1NormalOperation) ... ok
+test_04_checkout_request_succeeds (tests.test_system.Test1NormalOperation) ... ok
+test_05_trace_id_generated_when_absent (tests.test_system.Test1NormalOperation) ... ok
+test_06_existing_trace_id_preserved (tests.test_system.Test1NormalOperation) ... ok
+test_07_checkout_forwards_same_trace_id_to_payment (tests.test_system.Test1NormalOperation) ... ok
+test_08_request_logs_contain_trace_id (tests.test_system.Test1NormalOperation) ... ok
+test_09_metrics_count_total_requests (tests.test_system.Test1NormalOperation) ... ok
+test_10_success_counter_increments_and_latency_recorded (tests.test_system.Test1NormalOperation) ... ok
+test_11_payment_delay_can_be_enabled (tests.test_system.Test2FailureAndRecovery) ... ok
+test_12_payment_delay_exceeds_checkout_timeout (tests.test_system.Test2FailureAndRecovery) ... ok
+test_13_checkout_detects_real_payment_timeout (tests.test_system.Test2FailureAndRecovery) ... ok
+test_14_timeout_returns_504 (tests.test_system.Test2FailureAndRecovery) ... ok
+test_15_failure_counter_increments (tests.test_system.Test2FailureAndRecovery) ... ok
+test_16_timeout_counter_increments (tests.test_system.Test2FailureAndRecovery) ... ok
+test_17_checkout_alive_after_timeout (tests.test_system.Test2FailureAndRecovery) ... ok
+test_18_failure_trace_id_in_both_services (tests.test_system.Test2FailureAndRecovery) ... ok
+test_18b_payment_finishes_after_checkout_gave_up (tests.test_system.Test2FailureAndRecovery) ... ok
+test_19_payment_delay_can_be_removed (tests.test_system.Test2FailureAndRecovery) ... ok
+test_20_requests_succeed_after_recovery (tests.test_system.Test2FailureAndRecovery) ... ok
+test_21_error_rate_decreases_after_recovery (tests.test_system.Test2FailureAndRecovery) ... ok
+test_22_latency_returns_to_normal_range (tests.test_system.Test2FailureAndRecovery) ... ok
+test_checkout_survives_payment_being_down (tests.test_system.Test3EdgeCases)
+Different failure mode: Payment unreachable -> 502, Checkout keeps running. ... ok
+test_invalid_checkout_request_returns_400_with_trace (tests.test_system.Test3EdgeCases) ... ok
+test_invalid_delay_rejected (tests.test_system.Test3EdgeCases) ... ok
+test_payment_does_not_invent_trace_id (tests.test_system.Test3EdgeCases) ... ok
+test_error_rate_math (tests.test_system.Test4MetricsUnit) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 2.378s
+
+OK

@@ -1,0 +1,165 @@
+==================================================
+SETUP
+==================================================
+Checkout Service: http://127.0.0.1:8000  (pid 573)
+Payment Service:  http://127.0.0.1:8001  (pid 572)
+Two separate OS processes: YES
+Checkout -> Payment timeout: 1.0 s
+
+==================================================
+PHASE 1: SUCCESSFUL REQUEST
+==================================================
+Payment delay: NORMAL (0.0 s)
+Request: POST /checkout {"order_id": "order-1001", "amount": 49.99}  (no X-Trace-ID sent, so Checkout generates one)
+
+Trace ID: 7a500e08-eee2-4f12-b4a6-ff50104d5f79
+
+Checkout -> Payment
+
+Checkout status: SUCCESS (HTTP 200)
+Payment status: SUCCESS (payment_id=pay-922b5bf8a83a)
+Checkout latency: 5.30 ms
+Trace ID echoed by Payment: 7a500e08-eee2-4f12-b4a6-ff50104d5f79
+Trace ID shared across services: YES (7a500e08-eee2-4f12-b4a6-ff50104d5f79)
+
+Log entries for trace 7a500e08-eee2-4f12-b4a6-ff50104d5f79 (both services, merged by timestamp):
+  CHECKOUT 2026-11-14T05:19:07.302285Z trace_id=7a500e08-eee2-4f12-b4a6-ff50104d5f79 event=request_started
+  CHECKOUT 2026-11-14T05:19:07.302390Z trace_id=7a500e08-eee2-4f12-b4a6-ff50104d5f79 event=payment_call_started timeout_seconds=1.0
+  PAYMENT  2026-11-14T05:19:07.307062Z trace_id=7a500e08-eee2-4f12-b4a6-ff50104d5f79 event=payment_started delay_seconds=0.0
+  PAYMENT  2026-11-14T05:19:07.307189Z trace_id=7a500e08-eee2-4f12-b4a6-ff50104d5f79 event=payment_completed status=success latency_ms=0.14 delay_seconds=0.0
+  CHECKOUT 2026-11-14T05:19:07.307445Z trace_id=7a500e08-eee2-4f12-b4a6-ff50104d5f79 event=payment_response_received status=success latency_ms=5.19
+  CHECKOUT 2026-11-14T05:19:07.307552Z trace_id=7a500e08-eee2-4f12-b4a6-ff50104d5f79 event=request_completed status=success latency_ms=5.3 http_status=200
+
+Metrics after PHASE 1:
+  Checkout GET /metrics: {"service": "checkout", "total_requests": 1, "success_count": 1, "failure_count": 0, "timeout_count": 0, "error_rate": 0.0, "error_rate_percent": 0.0, "average_latency_ms": 5.3, "min_latency_ms": 5.3, "max_latency_ms": 5.3, "last_latency_ms": 5.3, "failures_by_reason": {}}
+  Payment  GET /metrics: {"service": "payment", "total_requests": 1, "success_count": 1, "failure_count": 0, "error_rate": 0.0, "error_rate_percent": 0.0, "average_latency_ms": 0.14, "min_latency_ms": 0.14, "max_latency_ms": 0.14, "last_latency_ms": 0.14, "failures_by_reason": {}}
+
+==================================================
+PHASE 2: PAYMENT DELAY / TIMEOUT
+==================================================
+Payment delay enabled: 2.0 seconds   (POST http://127.0.0.1:8001/admin/delay)
+Checkout timeout: 1.0 seconds
+Payment delay > Checkout timeout: YES
+
+Trace ID: failure-83aa3689-8213-4493-bc43-f479a0a2fb1f   (supplied by the client in X-Trace-ID)
+
+Checkout -> Payment
+Payment begins processing...   (payment.log: event=payment_started delay_seconds=2.0)
+Checkout timeout detected.     (Checkout error=payment_timeout)
+
+Checkout response: TIMEOUT
+HTTP status: 504
+Checkout message: Checkout stopped waiting for Payment after 1.0s. Payment may still finish the request later.
+Trace ID preserved in response: YES
+Checkout latency: 1003.58 ms  (>= 1000 ms timeout and < 2000 ms Payment delay: Checkout really waited, then gave up) YES
+
+GET /health -> HTTP 200 {"status": "ok", "service": "checkout", "pid": 573, "started_at": "2026-11-14T05:19:07.295797Z", "uptime_seconds": 1.024, "payment_url": "http://127.0.0.1:8001", "payment_timeout_seconds": 1.0}
+Checkout service still running: YES  (same pid 573, never restarted)
+
+Metrics immediately after the failure:
+  Checkout GET /metrics: {"service": "checkout", "total_requests": 2, "success_count": 1, "failure_count": 1, "timeout_count": 1, "error_rate": 0.5, "error_rate_percent": 50.0, "average_latency_ms": 504.44, "min_latency_ms": 5.3, "max_latency_ms": 1003.58, "last_latency_ms": 1003.58, "failures_by_reason": {"payment_timeout": 1}}
+  Payment  GET /metrics: {"service": "payment", "total_requests": 1, "success_count": 1, "failure_count": 0, "error_rate": 0.0, "error_rate_percent": 0.0, "average_latency_ms": 0.14, "min_latency_ms": 0.14, "max_latency_ms": 0.14, "last_latency_ms": 0.14, "failures_by_reason": {}}
+  Checkout failure_count: 0 -> 1   timeout_count: 0 -> 1   error_rate: 0.0% -> 50.0%
+
+Waiting for Payment to finish the slow request (Payment is slow, not crashed)...
+Payment finished the request AFTER Checkout gave up: YES (payment latency 2005.29 ms)
+=> Checkout stopped waiting because its timeout expired; Payment was intentionally slow
+   and still completed. The client got a 504, so the outcome must be reconciled later
+   (e.g. by order_id); the timeout is NOT proof that Payment crashed.
+
+CROSS-SERVICE TRACE for the failed request (grep failure-83aa3689-8213-4493-bc43-f479a0a2fb1f evidence/*.log):
+  CHECKOUT 2026-11-14T05:19:07.310916Z trace_id=failure-83aa3689-8213-4493-bc43-f479a0a2fb1f event=request_started
+  CHECKOUT 2026-11-14T05:19:07.311034Z trace_id=failure-83aa3689-8213-4493-bc43-f479a0a2fb1f event=payment_call_started timeout_seconds=1.0
+  PAYMENT  2026-11-14T05:19:07.311475Z trace_id=failure-83aa3689-8213-4493-bc43-f479a0a2fb1f event=payment_started delay_seconds=2.0
+  CHECKOUT 2026-11-14T05:19:08.313031Z trace_id=failure-83aa3689-8213-4493-bc43-f479a0a2fb1f event=payment_timeout status=failure latency_ms=1002.07 timeout_seconds=1.0
+  CHECKOUT 2026-11-14T05:19:08.314570Z trace_id=failure-83aa3689-8213-4493-bc43-f479a0a2fb1f event=request_completed status=failure latency_ms=1003.58 http_status=504 reason=payment_timeout
+  PAYMENT  2026-11-14T05:19:09.316804Z trace_id=failure-83aa3689-8213-4493-bc43-f479a0a2fb1f event=payment_completed status=success latency_ms=2005.29 delay_seconds=2.0
+Same trace ID found in Checkout AND Payment logs: YES
+
+==================================================
+PHASE 3: RECOVERY
+==================================================
+Payment delay removed.   (POST /admin/delay {"delay_seconds": 0} -> 0.0 s)
+Checkout was not changed, reconfigured or restarted.
+
+Recovery request 1/3
+  Trace ID: 4890a018-c59d-4f1a-98e7-fa0d2586586d
+  Checkout -> Payment
+  Checkout status: SUCCESS (HTTP 200)
+  Payment status: SUCCESS
+  Checkout latency: 5.09 ms
+  Log entries for this trace:
+  CHECKOUT 2026-11-14T05:19:09.335293Z trace_id=4890a018-c59d-4f1a-98e7-fa0d2586586d event=request_started
+  CHECKOUT 2026-11-14T05:19:09.335913Z trace_id=4890a018-c59d-4f1a-98e7-fa0d2586586d event=payment_call_started timeout_seconds=1.0
+  PAYMENT  2026-11-14T05:19:09.337894Z trace_id=4890a018-c59d-4f1a-98e7-fa0d2586586d event=payment_started delay_seconds=0.0
+  PAYMENT  2026-11-14T05:19:09.338577Z trace_id=4890a018-c59d-4f1a-98e7-fa0d2586586d event=payment_completed status=success latency_ms=0.71 delay_seconds=0.0
+  CHECKOUT 2026-11-14T05:19:09.339781Z trace_id=4890a018-c59d-4f1a-98e7-fa0d2586586d event=payment_response_received status=success latency_ms=4.58
+  CHECKOUT 2026-11-14T05:19:09.340297Z trace_id=4890a018-c59d-4f1a-98e7-fa0d2586586d event=request_completed status=success latency_ms=5.09 http_status=200
+Recovery request 2/3
+  Trace ID: ec4bb984-bf25-4182-8e55-e54c708c99ff
+  Checkout -> Payment
+  Checkout status: SUCCESS (HTTP 200)
+  Payment status: SUCCESS
+  Checkout latency: 3.04 ms
+Recovery request 3/3
+  Trace ID: 33382875-ee0a-4b06-92ed-99f1f8b481f5
+  Checkout -> Payment
+  Checkout status: SUCCESS (HTTP 200)
+  Payment status: SUCCESS
+  Checkout latency: 1.52 ms
+
+Checkout service still running: YES  (same pid 573, uptime 2.1 s)
+Checkout service_started events in checkout.log: 1 (started once, never restarted)
+
+Metrics after recovery:
+  Checkout GET /metrics: {"service": "checkout", "total_requests": 5, "success_count": 4, "failure_count": 1, "timeout_count": 1, "error_rate": 0.2, "error_rate_percent": 20.0, "average_latency_ms": 203.7, "min_latency_ms": 1.52, "max_latency_ms": 1003.58, "last_latency_ms": 1.52, "failures_by_reason": {"payment_timeout": 1}}
+  Payment  GET /metrics: {"service": "payment", "total_requests": 5, "success_count": 5, "failure_count": 0, "error_rate": 0.0, "error_rate_percent": 0.0, "average_latency_ms": 401.34, "min_latency_ms": 0.14, "max_latency_ms": 2005.29, "last_latency_ms": 0.16, "failures_by_reason": {}}
+
+==================================================
+ERROR RATE (from Checkout /metrics counters)
+==================================================
+Before failure:    0.0%  (0 failed / 1 total)
+After failure:    50.0%  (1 failed / 2 total)
+After recovery:   20.0%  (1 failed / 5 total)
+
+ERROR RATE DECREASED: YES
+
+==================================================
+LATENCY (measured inside Checkout, per request)
+==================================================
+Normal latency:      5.30 ms
+Failure latency:  1003.58 ms   (~ the 1000 ms timeout)
+Recovery latency:    3.22 ms   (average of 3 requests: 5.09, 3.04, 1.52)
+Rule: recovery average < 50% of the timeout (500 ms) and < 50% of the failure latency
+
+LATENCY RETURNED TO NORMAL RANGE: YES
+
+==================================================
+SUMMARY
+==================================================
+[PASS] Checkout and Payment run as separate processes
+[PASS] Phase 1 checkout succeeded
+[PASS] Phase 1 payment succeeded
+[PASS] Phase 1 trace ID reached Payment
+[PASS] Payment delay exceeds Checkout timeout
+[PASS] Payment received the delayed request
+[PASS] Client-supplied trace ID preserved
+[PASS] Checkout returned 504 payment_timeout
+[PASS] Timeout latency is between timeout and delay
+[PASS] Checkout healthy after timeout
+[PASS] Failure counter increased
+[PASS] Timeout counter increased
+[PASS] Payment completed the delayed request after the timeout
+[PASS] Failure trace ID appears in both services' logs
+[PASS] Recovery request 1 succeeded
+[PASS] Recovery request 1 trace reached Payment
+[PASS] Recovery request 2 succeeded
+[PASS] Recovery request 2 trace reached Payment
+[PASS] Recovery request 3 succeeded
+[PASS] Recovery request 3 trace reached Payment
+[PASS] Checkout still running with same PID after recovery
+[PASS] Checkout started exactly once
+[PASS] Error rate decreased after recovery
+[PASS] Latency returned to normal range
+
+RESULT: ALL CHECKS PASSED (24/24 checks passed)

@@ -1,0 +1,6 @@
+# This project uses ONLY the Python 3 standard library (Python 3.9+).
+#   - HTTP servers: http.server.ThreadingHTTPServer
+#   - HTTP client with timeout: urllib.request
+#   - Tests: unittest
+# There are no third-party dependencies, so `pip install -r requirements.txt`
+# installs nothing and is safe to run.
